@@ -1,0 +1,64 @@
+
+services:
+
+  postgres:
+    image: postgres:16
+
+    environment:
+      POSTGRES_DB: smarthome_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+  
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d smarthome_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+
+  backend:
+    build: ./backend
+
+    environment:
+      DATABASE_URL: postgresql+psycopg2://admin:${DB_PASSWORD}@postgres:5432/smarthome_db
+
+    ports:
+      - "127.0.0.1:8000:8000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+  frontend:
+    build: ./frontend
+
+    ports:
+      - "127.0.0.1:3000:80"
+
+    depends_on:
+      - backend
+
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "127.0.0.1:19090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
